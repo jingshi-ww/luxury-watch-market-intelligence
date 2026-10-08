@@ -1,0 +1,24 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+*.db-journal
+
+# Local datasets and SQLite database
+data/raw/
+data/processed/
+data/database/
+
+# Streamlit local secrets
+.streamlit/secrets.toml
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Notebook checkpoints
+.ipynb_checkpoints/
