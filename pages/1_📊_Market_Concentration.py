@@ -4,6 +4,8 @@ import plotly.express as px
 from pathlib import Path
 import requests
 import numpy as np
+import os
+from dotenv import load_dotenv
 
 # =========================
 # PAGE CONFIG
@@ -17,6 +19,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data" / "processed"
 
 API_BASE_URL = "http://127.0.0.1:8000"
+load_dotenv(BASE_DIR / ".env")
 
 
 # =========================
@@ -54,9 +57,10 @@ of dominant names.
 """)
 
 st.info("""
-This page combines historical marketplace data, Google Trends attention data,
-and an eBay API market sample. When FastAPI is running, the first chart is queried
-from the SQLite analytical database; otherwise, the dashboard falls back to processed CSV files.
+The analysis has three scopes: a broad historical market overview (Top 15 brands),
+a purposively selected eight-brand comparison, and a separate standardized eBay API sample.
+The Top 15 chart reads FastAPI + SQLite when available and otherwise uses the same
+full historical dataset from CSV. Only the selected-brand charts follow sidebar filters.
 """)
 
 
@@ -84,6 +88,9 @@ segment_map = {
     "Richard Mille": "Ultra prestige niche"
 }
 
+# Keep the complete historical dataset for the exploratory Top 15 chart.
+# The selected-brand subset below is used for KPIs and comparative charts.
+full_market_df = global_df.copy()
 global_df["market_segment"] = global_df["brand"].map(segment_map)
 
 global_df = global_df.dropna(subset=["market_segment"]).copy()
@@ -136,6 +143,11 @@ filtered_df = global_df[
 # =========================
 # KPI
 # =========================
+st.subheader("Selected-brand comparative analysis — 8 brands")
+st.caption(
+    "The KPIs below use the eight selected brands and respond to sidebar filters "
+    "(segment, brand and price). They do not describe the entire historical market."
+)
 brand_count = filtered_df["brand"].nunique()
 listing_count = len(filtered_df)
 median_price = filtered_df["price"].median()
@@ -158,7 +170,12 @@ st.divider()
 # =========================
 # CHART 1: BRAND LISTING INTENSITY
 # =========================
-st.subheader("Secondary Market Listing Intensity by Brand")
+st.subheader("Exploratory market overview — Top 15 brands")
+st.caption(
+    "This chart covers the full historical dataset (top 15 brands by listing count), "
+    "independently of the eight-brand sidebar filters and price range. "
+    "It provides context before the selected-brand comparison."
+)
 
 try:
     response = requests.get(
@@ -174,7 +191,7 @@ try:
 
 except Exception:
     brand_volume = (
-        filtered_df
+        full_market_df
         .groupby("brand", as_index=False)
         .agg(listing_count=("brand", "count"))
         .sort_values("listing_count", ascending=False)
@@ -193,7 +210,7 @@ fig = px.bar(
     x="listing_count",
     y="brand",
     orientation="h",
-    title="Which Brands Dominate Secondary-Market Listing Volume?",
+    title="Full Historical Dataset — Top 15 Brands by Listing Volume",
     labels={
         "listing_count": "Number of listings",
         "brand": "Brand"
@@ -222,7 +239,14 @@ st.divider()
 # =========================
 # CHART 2: MARKET POSITIONING
 # =========================
-st.subheader("Market Positioning: Listing Volume vs Price")
+st.subheader("Selected-brand comparison — Market Positioning")
+st.caption(
+    "Eight brands were purposively selected to compare different market positions: "
+    "TAG Heuer and Longines (accessible luxury); Omega and Cartier (broad premium); "
+    "Rolex (high prestige); Patek Philippe and Audemars Piguet (collector prestige); "
+    "Richard Mille (ultra-prestige niche). These are project-defined analytical "
+    "segments, not official industry categories. The charts below follow the sidebar filters."
+)
 
 brand_metrics = (
     filtered_df
@@ -400,8 +424,13 @@ with col_note:
 
 if refresh_clicked:
     try:
+        refresh_key = os.getenv("WATCH_API_KEY", "")
+        if not refresh_key:
+            st.error("WATCH_API_KEY is missing from your local .env file.")
+            st.stop()
         response = requests.post(
             f"{API_BASE_URL}/refresh-ebay-market",
+            headers={"X-API-Key": refresh_key},
             timeout=120
         )
         response.raise_for_status()

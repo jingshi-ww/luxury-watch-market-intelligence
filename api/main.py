@@ -1,14 +1,19 @@
 from pathlib import Path
+import os
+import secrets
 import sqlite3
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Security, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 import subprocess
 import sys
 from datetime import datetime
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "data" / "database" / "watch_market.db"
+load_dotenv(BASE_DIR / ".env")
 
 app = FastAPI(
     title="Luxury Watch Market API",
@@ -19,10 +24,24 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+# Protect the data-changing endpoint only; analytical GET endpoints stay public.
+refresh_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def require_refresh_key(provided_key: str | None = Security(refresh_key_header)):
+    expected_key = os.getenv("WATCH_API_KEY", "")
+    if not expected_key or not provided_key or not secrets.compare_digest(provided_key, expected_key):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A valid X-API-Key is required for data refresh",
+        )
+    return True
 
 
 def read_sql(query: str, params: tuple = ()):
@@ -42,26 +61,6 @@ def home():
 
 @app.get("/market-concentration")
 def market_concentration(limit: int = 15):
-    query = """
-    SELECT
-        brand,
-        COUNT(*) AS listing_count,
-        ROUND(AVG(price), 2) AS avg_price,
-        ROUND(MEDIAN_PRICE, 2) AS median_price
-    FROM (
-        SELECT
-            brand,
-            price,
-            PERCENTILE_CONT_50 AS MEDIAN_PRICE
-        FROM global_watch_market
-        WHERE brand IS NOT NULL
-          AND price IS NOT NULL
-    )
-    GROUP BY brand
-    ORDER BY listing_count DESC
-    LIMIT ?
-    """
-
     # SQLite has no native median, so use pandas instead
     connection = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query(
@@ -227,7 +226,7 @@ def ebay_inventory():
 
 
 @app.post("/refresh-ebay-market")
-def refresh_ebay_market():
+def refresh_ebay_market(_authorized: bool = Depends(require_refresh_key)):
     collect_script = BASE_DIR / "src" / "collect_ebay.py"
     prepare_script = BASE_DIR / "src" / "prepare_ebay_attention.py"
     store_script = BASE_DIR / "src" / "store.py"
