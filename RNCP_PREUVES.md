@@ -1,36 +1,56 @@
-# RNCP37827BC01 — Index des preuves techniques
+# RNCP37827BC01 — Technical Evidence Index
 
-Ce document complète le rapport PDF remis au jury. Il distingue les preuves disponibles dans le code, les vérifications effectuées sur les données locales et les limites de reproductibilité d'un clone public.
+This document supplements the French-language PDF assessment report submitted separately to the evaluation panel. It maps competencies C1–C5 to the repository's technical implementation, summarizes previous local data-validation results, and identifies reproducibility and methodological limitations.
 
-| Compétence (consignes de formation) | Éléments du dépôt | Démonstration |
+## Competency Mapping
+
+| Competency | Repository evidence | Technical implementation |
 | --- | --- | --- |
-| C1 — Collecter les données de manière automatisée | `src/collect_ebay.py`, `src/collect_google_trends.py`, `src/collect.py` | API eBay, Google Trends, parsing de fichiers HTML Chrono24 sauvegardés localement. |
-| C2 — Préparer les données pour leur première utilisation | `src/prepare.py`, `src/prepare_ebay_attention.py` | Harmonisation de colonnes, conversion de prix, gestion des valeurs manquantes et préparation des entrées. |
-| C3 — Mettre en œuvre des règles d’agrégation de données | `src/prepare_ebay_attention.py`, `notebooks/` | Agrégation par marque, rapprochement des indicateurs d'inventaire et d'attention. |
-| C4 — Créer une base de données | `src/store.py`, `src/build_relational_model.py`, `docs/C4_modele_relationnel.md`, `docs/sql_queries.sql` | SQLite analytique et couche relationnelle complémentaire avec PK/FK ; requêtes SQL sur les données historiques. |
-| C5 — Mettre à disposition les données via une API | `api/main.py`, `tests/`, `/docs` (Swagger local) | FastAPI, endpoints de lecture et rafraîchissement eBay. Vérifier la version du code déployée pour le contrôle d'accès du POST. |
+| **C1 — Automated Data Collection** | `src/collect_ebay.py`, `src/collect_google_trends.py`, `src/collect.py` | eBay Browse API collection using OAuth credentials, Google Trends retrieval through `pytrends`, and parsing of locally saved Chrono24 HTML files. |
+| **C2 — Data Preparation** | `src/prepare.py`, `src/prepare_ebay_attention.py`, `src/prepare_rolex_premium.py`, `src/prepare_rolex_visibility.py` | Column standardization, numeric price conversion, missing-value handling, reference extraction, data enrichment, and preparation of analytical datasets. |
+| **C3 — Data Aggregation** | `src/prepare_ebay_attention.py`, Rolex preparation scripts, `notebooks/` | Brand-level inventory aggregation, price statistics, Google Trends attention comparisons, Rolex premium calculations, and listing-visibility summaries. |
+| **C4 — Database Creation** | `src/store.py`, `src/build_relational_model.py`, `src/sql_check.py`, `docs/C4_modele_relationnel.md`, `sql_queries.sql` | SQLite analytical storage and a complementary three-table relational model using primary keys, foreign keys, constraints, and integrity checks. |
+| **C5 — Data Access via API** | `api/main.py`, `tests/test_api_security.py`, `tests/test_relational_model.py` | FastAPI analytical GET endpoints, Swagger/OpenAPI documentation at `/docs`, and an eBay refresh POST endpoint protected by an `X-API-Key` header. |
 
-## Vérifications sur données locales
+## Local Data Validation Results
 
-- Jeu historique `Watches.csv` : **284 491 lignes** avant et après préparation ; **14 665** valeurs de prix non convertibles ou absentes après conversion (**5,15 %**) ; **43 152** références absentes.
-- Échantillon eBay CSV examiné : **964 lignes**, toutes conservées dans le contrôle décrit dans le rapport, sans doublon d'`item_url` dans cet instantané.
-- Rafraîchissement eBay distinct réalisé le **9 octobre 2026** : **925 annonces**. Ces deux chiffres ne correspondent pas à la même extraction.
-- Requêtes sur `global_watch_market` dans la base SQLite locale : Rolex **68 798**, Omega **38 909**, Seiko **18 887**, Breitling **17 019**, Cartier **15 877** annonces avec prix valide.
-- Les fichiers CSV historiques et les scripts de préparation utilisés pour ces contrôles étaient identiques dans les deux archives du **7 et du 9 octobre 2026** ; le fichier SQLite, lui, différait.
+The following figures originate from previous checks performed on local datasets and database snapshots. They are not recalculated automatically from a fresh public repository clone.
 
-Les requêtes SQL reproductibles sont dans [`sql_queries.sql`](sql_queries.sql). Leurs résultats nécessitent la base SQLite locale correctement alimentée : la base et les CSV volumineux ne sont pas publiés dans le dépôt.
+- **Historical dataset (`Watches.csv`):** 284,491 rows before and after preparation; 14,665 missing or non-convertible prices after conversion (5.15%); 43,152 missing references.
+- **Archived eBay CSV sample:** 964 rows retained in the documented validation, with no duplicate `item_url` within that snapshot.
+- **Separate eBay refresh on October 9, 2026:** 925 listings. These two eBay figures represent separate collection runs.
+- **Historical SQLite validation (`global_watch_market`):** Rolex — 68,798; Omega — 38,909; Seiko — 18,887; Breitling — 17,019; Cartier — 15,877 records with valid prices.
+- **Archive comparison:** Historical CSV files and preparation scripts were identical in the October 7 and October 9, 2026 working archives, while the SQLite database files differed.
 
-## Limites et lecture des indicateurs
+The SQL queries used for historical market checks are provided in [`sql_queries.sql`](sql_queries.sql). Their execution requires the relevant local database tables and data.
 
-- Les annonces ne constituent pas des transactions réalisées.
-- Le classement de marques sur 15 marques et les KPI ciblés sur 8 marques n'ont pas le même périmètre.
-- La couche relationnelle complémentaire contient trois tables et une ligne par marque dans l'instantané courant ; sa reconstruction requiert l'exécution explicite de `python src/build_relational_model.py` après mise à jour de SQLite.
-- Les URL Rolex répétées à des dates différentes peuvent représenter des observations temporelles valides ; elles ne doivent pas être automatiquement confondues avec des doublons de lignes.
-- Les prix catalogue Rolex proviennent d'une table tierce pouvant contenir plusieurs prix par référence ; les primes calculées restent exploratoires.
+## Relational Model and Data Scope
 
-## Exécution et sécurité
+The main SQLite database stores nine analytical tables generated from processed CSV datasets.
 
-Depuis la racine du dépôt, une fois les dépendances et données locales installées :
+A separate relational layer is implemented through `src/build_relational_model.py`, containing:
+
+- `dim_brand`: brand identifiers, names, and market segments.
+- `fact_ebay_market`: brand-level eBay listing counts and price statistics.
+- `fact_brand_attention`: brand-level Google Trends attention indicators.
+
+The relational layer uses a one-record-per-brand snapshot structure, with primary and foreign key constraints. The implementation checks for duplicate brands, mismatched brand sets, inconsistent market segments, and foreign key violations.
+
+This supplementary relational model is not automatically rebuilt by the eBay refresh endpoint. After updating the source tables, `python src/build_relational_model.py` must be executed separately.
+
+## Methodological Limitations
+
+- Marketplace listings represent advertised offers, not completed sales.
+- The historical 15-brand ranking and the eight-brand eBay/Google Trends analysis use different analytical populations.
+- eBay API results are limited by the collection window and query configuration; listing counts do not represent total marketplace inventory or market share.
+- Google Trends provides relative search-attention indicators rather than sales or verified purchase demand.
+- Repeated Rolex listing URLs across different dates may represent valid temporal observations rather than duplicate records.
+- Rolex retail-price matching relies on a third-party reference-price table that may contain multiple entries per reference. Premium estimates are therefore exploratory and may be affected by one-to-many matching.
+- The relational model represents an aggregated brand snapshot, not a transaction-level or multi-date relational warehouse.
+
+## Execution and Reproducibility
+
+From the repository root, after installing dependencies and supplying the required local input datasets:
 
 ```bash
 python src/store.py
@@ -39,4 +59,10 @@ python -m unittest discover -s tests -v
 python -m uvicorn api.main:app --reload
 ```
 
-Ne jamais versionner `.env`, les clés eBay ou la base SQLite locale. Le contrôle d'accès du POST `/refresh-ebay-market` doit être vérifié dans le code actuellement présent sur la branche soumise : les archives de travail et le dépôt distant peuvent différer.
+The public repository does not include the large raw datasets, generated CSV files, or local SQLite database needed to reproduce every analytical result.
+
+The API security implementation requires the `WATCH_API_KEY` environment variable for authorization of `POST /refresh-ebay-market`. Requests with a missing or invalid `X-API-Key` are rejected with HTTP 403.
+
+The repository includes automated tests covering API authorization and relational-model integrity. A previous local validation reported 11 passing tests; this result has not been independently rerun as part of the present repository review.
+
+Never commit `.env`, eBay client credentials, API keys, or the local SQLite database to the public repository.
