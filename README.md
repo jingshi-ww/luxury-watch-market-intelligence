@@ -517,8 +517,8 @@ The resulting indicators support exploratory comparisons of listing visibility, 
 
 The formal assessment report is submitted separately as a PDF.
 
-Supporting technical evidence for competencies C1–C5, including implementation details, validation results, and methodological limitations, is documented in [docs/RNCP_PREUVES.md](docs/RNCP_PREUVES.md).
+Supporting technical evidence for competencies C1–C5, including implementation details, validation results, and methodological limitations, is documented in [RNCP_PREUVES.md](RNCP_PREUVES.md).
 
-SQL queries used to validate historical market data are available in [docs/sql_queries.sql](docs/sql_queries.sql).
+SQL queries used to validate historical market data are available in [sql_queries.sql](sql_queries.sql).
 
 Raw datasets, generated CSV files, and the SQLite database are not included in this public repository. Please refer to the evidence documentation for reproducibility requirements, data-source limitations, and differences in analytical scope.
