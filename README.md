@@ -512,3 +512,13 @@ The project combines broad historical market exploration, selected-brand compari
 Its principal technical components include data collection from heterogeneous sources, data cleaning and aggregation, SQLite analytical storage, a complementary relational model, FastAPI data endpoints, basic API-key protection and an interactive Streamlit interface.
 
 The resulting indicators support exploratory comparisons of listing visibility, asking-price premiums and public attention while preserving the methodological distinction between historical listings, repeated observations and limited live API samples.
+
+## RNCP37827BC01 — Assessment Evidence
+
+The formal assessment report is submitted separately as a PDF.
+
+Supporting technical evidence for competencies C1–C5, including implementation details, validation results, and methodological limitations, is documented in [docs/RNCP_PREUVES.md](docs/RNCP_PREUVES.md).
+
+SQL queries used to validate historical market data are available in [docs/sql_queries.sql](docs/sql_queries.sql).
+
+Raw datasets, generated CSV files, and the SQLite database are not included in this public repository. Please refer to the evidence documentation for reproducibility requirements, data-source limitations, and differences in analytical scope.
